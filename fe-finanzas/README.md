@@ -30,6 +30,7 @@ If the frontend runs on a different port, update `CORS_ORIGINS` in `../be-finanz
 - Cash-flow chart and range switch from `/dashboard/cashflow`
 - Recent transactions and full search from `/transactions`
 - Transaction creation and deletion
+- Transaction amounts update the assigned account balance, so the dashboard total changes immediately
 - Monthly budgets with spent/remaining totals
 - Budget creation, editing, and deletion
 - Account listing, creation, editing, and deletion

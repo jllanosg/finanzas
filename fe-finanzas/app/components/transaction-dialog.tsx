@@ -116,6 +116,11 @@ export function TransactionDialog({
           Notes <span className="optional-label">Optional</span>
           <textarea name="notes" rows={2} placeholder="Anything worth remembering?" />
         </label>
+        <p className="form-hint">
+          {accounts.length
+            ? "The selected account balance, and the dashboard total, update automatically when you save."
+            : "Add an account first if you want this transaction to change your total balance."}
+        </p>
         {error && (
           <p className="form-error">
             <Icon name="alert" size={15} />

@@ -37,12 +37,53 @@ def test_account_category_transaction_and_summary(client):
     summary = client.get("/api/v1/dashboard/summary")
     assert summary.status_code == 200
     body = summary.json()
-    assert body["total_balance"] == 1200.50
+    assert body["total_balance"] == 1194.75
     assert body["income"] == 0
     assert body["expenses"] == 5.75
     assert body["net"] == -5.75
     assert body["spending_by_category"][0]["name"] == "Food & drink"
     assert body["recent_transactions"][0]["name"] == "Coffee"
+
+
+def test_transactions_keep_account_balance_in_sync(client):
+    account = client.post(
+        "/api/v1/accounts",
+        json={"name": "Main account", "type": "checking", "balance": 1000},
+    ).json()
+
+    income = client.post(
+        "/api/v1/transactions",
+        json={
+            "name": "Salary",
+            "amount": 250,
+            "type": "income",
+            "account_id": account["id"],
+        },
+    ).json()
+    assert client.get(f"/api/v1/accounts/{account['id']}").json()["balance"] == 1250.0
+    assert client.get("/api/v1/dashboard/summary").json()["total_balance"] == 1250.0
+
+    expense = client.post(
+        "/api/v1/transactions",
+        json={
+            "name": "Groceries",
+            "amount": 40,
+            "type": "expense",
+            "account_id": account["id"],
+        },
+    ).json()
+    assert client.get(f"/api/v1/accounts/{account['id']}").json()["balance"] == 1210.0
+
+    updated = client.patch(f"/api/v1/transactions/{income['id']}", json={"amount": 300})
+    assert updated.status_code == 200
+    assert client.get(f"/api/v1/accounts/{account['id']}").json()["balance"] == 1260.0
+
+    assert client.delete(f"/api/v1/transactions/{expense['id']}").status_code == 204
+    assert client.get(f"/api/v1/accounts/{account['id']}").json()["balance"] == 1300.0
+
+    assert client.delete(f"/api/v1/transactions/{income['id']}").status_code == 204
+    assert client.get(f"/api/v1/accounts/{account['id']}").json()["balance"] == 1000.0
+    assert client.get("/api/v1/dashboard/summary").json()["total_balance"] == 1000.0
 
 
 def test_transaction_filters_and_search(client):

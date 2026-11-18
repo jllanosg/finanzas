@@ -62,6 +62,8 @@ The Docker database uses user/password/database `finance`. If port `5432` is alr
 | `transactions` | Signed by `type` (`income` or `expense`); `amount` is always positive |
 | `budgets` | One monthly limit per category; `month` is normalized to the first day |
 
+Creating, updating, or deleting a transaction with an `account_id` adjusts that account's balance by the signed transaction amount. The dashboard's `total_balance` is the sum of active account balances, so it stays in sync automatically.
+
 ## Endpoints
 
 All routes are under `/api/v1`.

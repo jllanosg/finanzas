@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, or_, select
@@ -20,6 +21,25 @@ def _validate_relations(
         raise HTTPException(status_code=404, detail="Category not found")
     if account_id is not None and not db.get(Account, account_id):
         raise HTTPException(status_code=404, detail="Account not found")
+
+
+def _as_money(value: Decimal | float | int) -> Decimal:
+    return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _signed_amount(transaction_type: str, amount: Decimal | float) -> Decimal:
+    value = _as_money(amount)
+    return value if transaction_type == "income" else -value
+
+
+def _apply_balance_delta(db: Session, account_id: int | None, delta: Decimal) -> None:
+    """Apply a signed change to an account balance while holding a row lock."""
+    if account_id is None:
+        return
+    account = db.scalar(select(Account).where(Account.id == account_id).with_for_update())
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    account.balance = _as_money(account.balance) + _as_money(delta)
 
 
 @router.get("", response_model=list[TransactionOut])
@@ -90,6 +110,11 @@ def create_transaction(
 
     transaction = Transaction(**data)
     db.add(transaction)
+    _apply_balance_delta(
+        db,
+        transaction.account_id,
+        _signed_amount(transaction.type, transaction.amount),
+    )
     db.commit()
     db.refresh(transaction)
     return transaction
@@ -105,6 +130,9 @@ def update_transaction(
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
+    previous_account_id = transaction.account_id
+    previous_delta = _signed_amount(transaction.type, transaction.amount)
+
     data = payload.model_dump(exclude_unset=True)
     if "category_id" in data or "account_id" in data:
         _validate_relations(
@@ -118,6 +146,14 @@ def update_transaction(
     for field, value in data.items():
         setattr(transaction, field, value)
 
+    # Reverse the old effect before applying the updated values.
+    _apply_balance_delta(db, previous_account_id, -previous_delta)
+    _apply_balance_delta(
+        db,
+        transaction.account_id,
+        _signed_amount(transaction.type, transaction.amount),
+    )
+
     db.commit()
     db.refresh(transaction)
     return transaction
@@ -128,6 +164,11 @@ def delete_transaction(transaction_id: int, db: Session = Depends(get_db)) -> Re
     transaction = db.get(Transaction, transaction_id)
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    _apply_balance_delta(
+        db,
+        transaction.account_id,
+        -_signed_amount(transaction.type, transaction.amount),
+    )
     db.delete(transaction)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
