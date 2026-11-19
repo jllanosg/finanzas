@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.models import Account, Category, Transaction
-from app.schemas import TransactionCreate, TransactionOut, TransactionType, TransactionUpdate
+from app.schemas import (
+    Currency,
+    TransactionCreate,
+    TransactionOut,
+    TransactionType,
+    TransactionUpdate,
+)
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -16,12 +22,13 @@ def _validate_relations(
     db: Session,
     category_id: int | None,
     account_id: int | None,
-) -> None:
+) -> Account | None:
     if category_id is not None and not db.get(Category, category_id):
         raise HTTPException(status_code=404, detail="Category not found")
-    if account_id is not None and not db.get(Account, account_id):
+    account = db.get(Account, account_id) if account_id is not None else None
+    if account_id is not None and not account:
         raise HTTPException(status_code=404, detail="Account not found")
-
+    return account
 
 def _as_money(value: Decimal | float | int) -> Decimal:
     return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -47,6 +54,7 @@ def list_transactions(
     response: Response,
     search: str | None = None,
     transaction_type: TransactionType | None = Query(default=None, alias="type"),
+    currency: Currency | None = None,
     category_id: int | None = None,
     account_id: int | None = None,
     start_date: date | None = None,
@@ -62,6 +70,8 @@ def list_transactions(
         filters.append(or_(Transaction.name.ilike(pattern), Transaction.notes.ilike(pattern)))
     if transaction_type:
         filters.append(Transaction.type == transaction_type)
+    if currency:
+        filters.append(Transaction.currency == currency)
     if category_id is not None:
         filters.append(Transaction.category_id == category_id)
     if account_id is not None:
@@ -104,7 +114,9 @@ def create_transaction(
     db: Session = Depends(get_db),
 ) -> Transaction:
     data = payload.model_dump()
-    _validate_relations(db, data["category_id"], data["account_id"])
+    account = _validate_relations(db, data["category_id"], data["account_id"])
+    if account is not None:
+        data["currency"] = account.currency
     if data["date"] is None:
         data["date"] = datetime.now(UTC)
 
@@ -134,8 +146,9 @@ def update_transaction(
     previous_delta = _signed_amount(transaction.type, transaction.amount)
 
     data = payload.model_dump(exclude_unset=True)
+    new_account = None
     if "category_id" in data or "account_id" in data:
-        _validate_relations(
+        new_account = _validate_relations(
             db,
             data.get("category_id", transaction.category_id),
             data.get("account_id", transaction.account_id),
@@ -145,6 +158,14 @@ def update_transaction(
 
     for field, value in data.items():
         setattr(transaction, field, value)
+
+    if "account_id" in data:
+        if new_account is not None:
+            transaction.currency = new_account.currency
+    elif transaction.account_id is not None:
+        linked_account = db.get(Account, transaction.account_id)
+        if linked_account:
+            transaction.currency = linked_account.currency
 
     # Reverse the old effect before applying the updated values.
     _apply_balance_delta(db, previous_account_id, -previous_delta)

@@ -1,7 +1,8 @@
 "use client";
 
 import type { FormEvent } from "react";
-import type { Account, AccountPayload, AccountType } from "../lib/api";
+import type { Account, AccountPayload, AccountType, Currency } from "../lib/api";
+import { SUPPORTED_CURRENCIES } from "../lib/api";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 
@@ -33,7 +34,7 @@ export function AccountDialog({ account, saving, error, onSave, onClose }: Accou
       name,
       type: String(data.get("type") ?? "checking") as AccountType,
       balance,
-      currency: String(data.get("currency") ?? "USD").toUpperCase(),
+      currency: String(data.get("currency") ?? "USD") as Currency,
       institution: String(data.get("institution") ?? "").trim() || null,
     });
   }
@@ -64,15 +65,19 @@ export function AccountDialog({ account, saving, error, onSave, onClose }: Accou
           </label>
           <label className="form-label">
             Currency
-            <input
-              name="currency"
-              defaultValue={account?.currency ?? "USD"}
-              minLength={3}
-              maxLength={3}
-              required
-            />
+            <select name="currency" defaultValue={account?.currency ?? "USD"}>
+              {SUPPORTED_CURRENCIES.map((currency) => (
+                <option key={currency} value={currency}>
+                  {currency}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
+        <p className="form-hint">
+          Each account keeps its own currency. Changing it relabels the account and its
+          transactions; existing amounts are not converted.
+        </p>
         <label className="form-label">
           Current balance
           <div className="amount-input">

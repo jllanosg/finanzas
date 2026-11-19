@@ -1,31 +1,64 @@
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+import type { Currency } from "./api";
 
-export function formatMoney(value: number): string {
-  return currencyFormatter.format(value);
+const moneyFormatters = new Map<Currency, Intl.NumberFormat>();
+const compactFormatters = new Map<Currency, Intl.NumberFormat>();
+
+function localeFor(currency: Currency): string {
+  return currency === "CLP" ? "es-CL" : "en-US";
 }
 
-export function moneyParts(value: number): { whole: string; fraction: string } {
-  const formatted = currencyFormatter.format(Math.abs(value));
-  const separator = formatted.lastIndexOf(".");
+function moneyFormatter(currency: Currency): Intl.NumberFormat {
+  let formatter = moneyFormatters.get(currency);
+  if (!formatter) {
+    const fractionDigits = currency === "CLP" ? 0 : 2;
+    formatter = new Intl.NumberFormat(localeFor(currency), {
+      style: "currency",
+      currency,
+      currencyDisplay: "narrowSymbol",
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    });
+    moneyFormatters.set(currency, formatter);
+  }
+  return formatter;
+}
+
+function compactFormatter(currency: Currency): Intl.NumberFormat {
+  let formatter = compactFormatters.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(localeFor(currency), {
+      style: "currency",
+      currency,
+      currencyDisplay: "narrowSymbol",
+      notation: "compact",
+      maximumFractionDigits: currency === "CLP" ? 0 : 1,
+    });
+    compactFormatters.set(currency, formatter);
+  }
+  return formatter;
+}
+
+export function formatMoney(value: number, currency: Currency = "USD"): string {
+  return moneyFormatter(currency).format(value);
+}
+
+export function moneyParts(
+  value: number,
+  currency: Currency = "USD",
+): { whole: string; fraction: string } {
+  const parts = moneyFormatter(currency).formatToParts(Math.abs(value));
   return {
-    whole: formatted.slice(0, separator),
-    fraction: formatted.slice(separator + 1),
+    whole: parts
+      .filter((part) => part.type === "currency" || part.type === "integer" || part.type === "group")
+      .map((part) => part.value)
+      .join(""),
+    fraction: parts.find((part) => part.type === "fraction")?.value ?? "",
   };
 }
 
-export function formatCompactCurrency(value: number): string {
-  if (value === 0) return "$0";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+export function formatCompactCurrency(value: number, currency: Currency = "USD"): string {
+  if (value === 0) return formatMoney(0, currency);
+  return compactFormatter(currency).format(value);
 }
 
 export function formatTransactionDate(value: string): string {

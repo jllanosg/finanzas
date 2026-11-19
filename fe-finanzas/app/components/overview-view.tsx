@@ -1,4 +1,11 @@
-import type { Budget, Cashflow, CashflowPeriod, DashboardSummary, Transaction } from "../lib/api";
+import type {
+  Budget,
+  Cashflow,
+  CashflowPeriod,
+  Currency,
+  DashboardSummary,
+  Transaction,
+} from "../lib/api";
 import {
   categoryColor,
   categoryTone,
@@ -40,13 +47,13 @@ function sampleLabels(points: Cashflow["points"]): string[] {
   });
 }
 
-function SplitAmount({ value }: { value: number | null }) {
+function SplitAmount({ value, currency }: { value: number | null; currency: Currency }) {
   if (value === null) return <>—</>;
-  const parts = moneyParts(value);
+  const parts = moneyParts(value, currency);
   return (
     <>
       {parts.whole}
-      <span>.{parts.fraction}</span>
+      {parts.fraction && <span>.{parts.fraction}</span>}
     </>
   );
 }
@@ -58,6 +65,7 @@ interface OverviewViewProps {
   transactions: Transaction[];
   query: string;
   range: CashflowPeriod;
+  currency: Currency;
   onRangeChange: (range: CashflowPeriod) => void;
   onAddTransaction: () => void;
   onViewTransactions: () => void;
@@ -78,6 +86,7 @@ export function OverviewView({
   transactions,
   query,
   range,
+  currency,
   onRangeChange,
   onAddTransaction,
   onViewTransactions,
@@ -90,6 +99,7 @@ export function OverviewView({
   dateLabel,
   greeting,
 }: OverviewViewProps) {
+  const displayCurrency = summary?.currency ?? cashflow?.currency ?? currency;
   const spending = summary?.spending_by_category ?? [];
   const displaySpending =
     spending.length > 4
@@ -158,7 +168,7 @@ export function OverviewView({
         <article className={`balance-card ${!connected ? "is-stale" : ""}`}>
           <div className="balance-topline">
             <span>
-              Total balance{" "}
+              Total balance <span className="currency-badge">{displayCurrency}</span>
               <button
                 className="balance-eye"
                 aria-label={showBalance ? "Hide balance" : "Show balance"}
@@ -172,12 +182,16 @@ export function OverviewView({
             </span>
           </div>
           <div className="balance-amount">
-            {showBalance ? <SplitAmount value={summary?.total_balance ?? null} /> : "••••••"}
+            {showBalance ? (
+              <SplitAmount value={summary?.total_balance ?? null} currency={displayCurrency} />
+            ) : (
+              "••••••"
+            )}
           </div>
           <div className="balance-foot">
             <span className={`balance-change ${(summary?.net ?? 0) < 0 ? "negative" : ""}`}>
               <Icon name={(summary?.net ?? 0) >= 0 ? "arrow-up-right" : "arrow-down-left"} size={14} />
-              {summary ? formatMoney(summary.net) : "—"}
+              {summary ? formatMoney(summary.net, displayCurrency) : "—"}
             </span>
             <span>net this month</span>
           </div>
@@ -209,15 +223,16 @@ export function OverviewView({
             <span className="stat-icon income-icon">
               <Icon name="arrow-down-left" size={18} />
             </span>
-            <span className="stat-month-tag">This month</span>
+            <span className="stat-month-tag">{displayCurrency} · This month</span>
           </div>
           <p className="stat-label">Income</p>
           <p className="stat-amount">
-            <SplitAmount value={summary?.income ?? null} />
+            <SplitAmount value={summary?.income ?? null} currency={displayCurrency} />
           </p>
           <div className="stat-foot">
             <span className={(summary?.net ?? 0) >= 0 ? "trend-up" : "trend-down"}>
-              {(summary?.net ?? 0) >= 0 ? "↗" : "↘"} {summary ? formatMoney(summary.net) : "—"}
+              {(summary?.net ?? 0) >= 0 ? "↗" : "↘"}{" "}
+              {summary ? formatMoney(summary.net, displayCurrency) : "—"}
             </span>
             <span>net this month</span>
           </div>
@@ -228,11 +243,11 @@ export function OverviewView({
             <span className="stat-icon expense-icon">
               <Icon name="arrow-up-right" size={18} />
             </span>
-            <span className="stat-month-tag">This month</span>
+            <span className="stat-month-tag">{displayCurrency} · This month</span>
           </div>
           <p className="stat-label">Spent</p>
           <p className="stat-amount">
-            <SplitAmount value={summary?.expenses ?? null} />
+            <SplitAmount value={summary?.expenses ?? null} currency={displayCurrency} />
           </p>
           <div className="stat-foot">
             <span className={(budget?.percent ?? 0) > 100 ? "trend-down" : "trend-up"}>
@@ -247,7 +262,7 @@ export function OverviewView({
         <article className="panel cashflow-panel">
           <div className="panel-heading">
             <div>
-              <p className="section-kicker">YOUR MONEY, IN MOTION</p>
+              <p className="section-kicker">YOUR MONEY, IN MOTION · {displayCurrency}</p>
               <h2>Cash flow</h2>
             </div>
             <div className="range-switch" role="group" aria-label="Cash flow time range">
@@ -264,19 +279,28 @@ export function OverviewView({
           </div>
           <div className="cashflow-summary" aria-busy={cashflowLoading}>
             <strong>
-              {cashflow ? `${netCashflow >= 0 ? "+" : ""}${formatMoney(netCashflow)}` : "—"}
+              {cashflow
+                ? `${netCashflow >= 0 ? "+" : ""}${formatMoney(netCashflow, displayCurrency)}`
+                : "—"}
             </strong>
             <span className={netCashflow >= 0 ? "cashflow-positive" : "cashflow-negative"}>
               {netCashflow >= 0 ? "↗" : "↘"} net cash flow
             </span>
             <span className="summary-caption">
-              {cashflow ? `${formatMoney(cashflow.total_income)} in · ${formatMoney(cashflow.total_expenses)} out` : "Loading…"}
+              {cashflow
+                ? `${formatMoney(cashflow.total_income, displayCurrency)} in · ${formatMoney(
+                    cashflow.total_expenses,
+                    displayCurrency,
+                  )} out`
+                : "Loading…"}
             </span>
           </div>
           <div className={`chart-wrap ${cashflowLoading ? "is-loading" : ""}`}>
             <div className="chart-y-labels">
               {[1, 0.75, 0.5, 0.25, 0].map((fraction) => (
-                <span key={fraction}>{formatCompactCurrency(chartMax * fraction)}</span>
+                <span key={fraction}>
+                  {formatCompactCurrency(chartMax * fraction, displayCurrency)}
+                </span>
               ))}
             </div>
             <div className="chart-main">
@@ -346,11 +370,11 @@ export function OverviewView({
           <div className="chart-legend">
             <span>
               <i className="legend-dot income-legend" /> Income{" "}
-              <strong>{formatMoney(cashflow?.total_income ?? 0)}</strong>
+              <strong>{formatMoney(cashflow?.total_income ?? 0, displayCurrency)}</strong>
             </span>
             <span>
               <i className="legend-dot expense-legend" /> Expenses{" "}
-              <strong>{formatMoney(cashflow?.total_expenses ?? 0)}</strong>
+              <strong>{formatMoney(cashflow?.total_expenses ?? 0, displayCurrency)}</strong>
             </span>
           </div>
         </article>
@@ -358,7 +382,7 @@ export function OverviewView({
         <article className="panel spending-panel">
           <div className="panel-heading">
             <div>
-              <p className="section-kicker">WHERE IT GOES</p>
+              <p className="section-kicker">WHERE IT GOES · {displayCurrency}</p>
               <h2>Spending</h2>
             </div>
             <button className="round-more" aria-label="View transactions" onClick={onViewTransactions}>
@@ -368,7 +392,7 @@ export function OverviewView({
           <div className="spending-content">
             <div className="donut-chart" style={{ background: donutBackground }}>
               <div className="donut-center">
-                <strong>{summary ? formatMoney(summary.expenses) : "—"}</strong>
+                <strong>{summary ? formatMoney(summary.expenses, displayCurrency) : "—"}</strong>
                 <span>Total spent</span>
               </div>
             </div>
@@ -396,7 +420,9 @@ export function OverviewView({
         <article className="panel transactions-panel">
           <div className="panel-heading transaction-heading">
             <div>
-              <p className="section-kicker">{query ? "SEARCH RESULTS" : "THE LATEST"}</p>
+              <p className="section-kicker">
+                {displayCurrency} · {query ? "SEARCH RESULTS" : "THE LATEST"}
+              </p>
               <h2>{query ? `Results for “${query}”` : "Recent transactions"}</h2>
             </div>
             <button className="text-link" onClick={onViewTransactions}>
@@ -427,7 +453,7 @@ export function OverviewView({
                   <span className="date-cell">{formatTransactionDate(transaction.date)}</span>
                   <span className={`amount-cell ${transaction.type}`}>
                     {transaction.type === "income" ? "+" : "−"}
-                    {formatMoney(transaction.amount)}
+                    {formatMoney(transaction.amount, transaction.currency)}
                   </span>
                 </div>
               ))
@@ -442,7 +468,7 @@ export function OverviewView({
         <article className="panel budget-panel">
           <div className="panel-heading">
             <div>
-              <p className="section-kicker">STAY ON TRACK</p>
+              <p className="section-kicker">STAY ON TRACK · {displayCurrency}</p>
               <h2>Monthly budget</h2>
             </div>
             <button className="round-more" aria-label="Manage budgets" onClick={onViewBudgets}>
@@ -450,8 +476,8 @@ export function OverviewView({
             </button>
           </div>
           <div className="budget-total">
-            <strong>{budget ? formatMoney(budget.spent) : "—"}</strong>
-            <span> of {budget ? formatMoney(budget.total_budget) : "—"}</span>
+            <strong>{budget ? formatMoney(budget.spent, displayCurrency) : "—"}</strong>
+            <span> of {budget ? formatMoney(budget.total_budget, displayCurrency) : "—"}</span>
           </div>
           <div className="budget-progress">
             <span style={{ width: `${budgetPercent}%` }} />
@@ -460,8 +486,8 @@ export function OverviewView({
             <span>
               {budget
                 ? budget.remaining >= 0
-                  ? `${formatMoney(budget.remaining)} left to spend`
-                  : `${formatMoney(Math.abs(budget.remaining))} over budget`
+                  ? `${formatMoney(budget.remaining, displayCurrency)} left to spend`
+                  : `${formatMoney(Math.abs(budget.remaining), displayCurrency)} over budget`
                 : "No budget yet"}
             </span>
             <strong>{budget ? `${Math.round(budget.percent)}%` : "—"}</strong>
@@ -478,7 +504,7 @@ export function OverviewView({
                   <div className="mini-track">
                     <i style={{ width: `${Math.min(100, Math.max(0, item.percent))}%` }} />
                   </div>
-                  <strong>{formatMoney(item.spent)}</strong>
+                  <strong>{formatMoney(item.spent, item.currency)}</strong>
                 </div>
               ))
             ) : (

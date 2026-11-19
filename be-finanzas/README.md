@@ -57,12 +57,14 @@ The Docker database uses user/password/database `finance`. If port `5432` is alr
 
 | Table | Purpose |
 | --- | --- |
-| `accounts` | Checking, savings, credit, cash, or investment accounts and cached balances |
+| `accounts` | Checking, savings, credit, cash, or investment accounts. Each account has its own `currency`: `USD` or `CLP`. |
 | `categories` | Transaction categories with a display icon/color and income/expense kind |
-| `transactions` | Signed by `type` (`income` or `expense`); `amount` is always positive |
-| `budgets` | One monthly limit per category; `month` is normalized to the first day |
+| `transactions` | Signed by `type` (`income` or `expense`); `amount` is always positive. Currency is inherited from the assigned account. |
+| `budgets` | One monthly limit per category, month, and currency; `month` is normalized to the first day |
 
-Creating, updating, or deleting a transaction with an `account_id` adjusts that account's balance by the signed transaction amount. The dashboard's `total_balance` is the sum of active account balances, so it stays in sync automatically.
+Creating, updating, or deleting a transaction with an `account_id` adjusts that account's balance by the signed transaction amount. The dashboard's `total_balance` is the sum of active account balances for the requested currency, so it stays in sync automatically.
+
+Multi-currency values are **not converted**. Dashboard, transaction, cash-flow, and budget queries are scoped with `currency=USD` or `currency=CLP`, and the frontend switches between them. A transaction without an account keeps the currency sent by the client. Changing an account's currency relabels its transactions; it does not convert their amounts.
 
 ## Endpoints
 
@@ -75,37 +77,37 @@ All routes are under `/api/v1`.
 | `GET/PATCH/DELETE` | `/accounts/{id}` | Read, update, or delete an account |
 | `GET/POST` | `/categories` | List (`?kind=expense`) or create categories |
 | `GET/PATCH/DELETE` | `/categories/{id}` | Read, update, or delete a category |
-| `GET/POST` | `/transactions` | Filter with `search`, `type`, `category_id`, `account_id`, `start_date`, `end_date`, `limit`, `offset` |
+| `GET/POST` | `/transactions` | Filter with `search`, `type`, `currency`, `category_id`, `account_id`, `start_date`, `end_date`, `limit`, `offset` |
 | `GET/PATCH/DELETE` | `/transactions/{id}` | Read, update, or delete a transaction |
-| `GET/POST` | `/budgets` | List for `?month=YYYY-MM` with spent totals, or create a budget |
+| `GET/POST` | `/budgets` | List for `?month=YYYY-MM&currency=USD` with spent totals, or create a budget |
 | `GET/PATCH/DELETE` | `/budgets/{id}` | Read, update, or delete a budget |
-| `GET` | `/dashboard/summary` | Balance, monthly income/expenses, recent transactions, spending by category, budget totals |
-| `GET` | `/dashboard/cashflow` | `?period=week|month|year` grouped cash-flow points |
+| `GET` | `/dashboard/summary` | Balance, monthly income/expenses, recent transactions, spending by category, and budget totals for `?currency=USD\|CLP` |
+| `GET` | `/dashboard/cashflow` | `?period=week\|month\|year&currency=USD\|CLP` grouped cash-flow points |
 
 Transaction list responses include an `X-Total-Count` header for pagination.
 
 ### Example requests
 
 ```bash
-# Add a transaction
+# Add a CLP transaction
 curl -X POST http://localhost:8000/api/v1/transactions \
   -H 'Content-Type: application/json' \
   -d '{
-    "name": "Blue Bottle Coffee",
-    "amount": 6.75,
+    "name": "Almuerzo",
+    "amount": 12000,
     "type": "expense",
-    "category_id": 3,
+    "currency": "CLP",
     "account_id": 1
   }'
 
 # Search expenses this month
-curl 'http://localhost:8000/api/v1/transactions?type=expense&search=coffee&limit=20'
+curl 'http://localhost:8000/api/v1/transactions?type=expense&search=coffee&limit=20&currency=USD'
 
-# Dashboard totals for November 2026
-curl 'http://localhost:8000/api/v1/dashboard/summary?month=2026-11'
+# Dashboard totals for November 2026 in CLP
+curl 'http://localhost:8000/api/v1/dashboard/summary?month=2026-11&currency=CLP'
 
-# Yearly cash flow
-curl 'http://localhost:8000/api/v1/dashboard/cashflow?period=year'
+# Yearly CLP cash flow
+curl 'http://localhost:8000/api/v1/dashboard/cashflow?period=year&currency=CLP'
 ```
 
 ## Migrations

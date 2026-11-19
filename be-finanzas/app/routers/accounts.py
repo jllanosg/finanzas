@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Account
+from app.models import Account, Transaction
 from app.schemas import AccountCreate, AccountOut, AccountUpdate
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
@@ -47,7 +47,16 @@ def update_account(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "currency" in data and data["currency"] != account.currency:
+        # Transactions follow the account's currency.
+        db.execute(
+            update(Transaction)
+            .where(Transaction.account_id == account.id)
+            .values(currency=data["currency"])
+        )
+
+    for field, value in data.items():
         setattr(account, field, value)
 
     db.commit()

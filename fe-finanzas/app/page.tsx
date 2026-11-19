@@ -18,6 +18,7 @@ import type {
   Cashflow,
   CashflowPeriod,
   Category,
+  Currency,
   DashboardSummary,
   Transaction,
   TransactionPayload,
@@ -26,6 +27,7 @@ import type {
 import {
   API_BASE_URL,
   ApiError,
+  SUPPORTED_CURRENCIES,
   createAccount,
   createBudget,
   createTransaction,
@@ -84,10 +86,20 @@ export default function Home() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [range, setRange] = useState<CashflowPeriod>("month");
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<Currency>("USD");
   const [showBalance, setShowBalance] = useState(true);
   const hydrated = useHydrated();
   const today = useMemo(() => (hydrated ? new Date() : null), [hydrated]);
   const effectiveMonth = selectedMonth ?? (hydrated ? currentMonthValue() : "");
+
+  const availableCurrencies = useMemo(() => {
+    const inUse = new Set(accounts.map((account) => account.currency));
+    const matching = SUPPORTED_CURRENCIES.filter((option) => inUse.has(option));
+    return matching.length ? matching : (["USD"] as Currency[]);
+  }, [accounts]);
+  const activeCurrency = availableCurrencies.includes(currency)
+    ? currency
+    : (availableCurrencies[0] ?? "USD");
 
   const [coreLoading, setCoreLoading] = useState(true);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
@@ -125,10 +137,10 @@ export default function Home() {
       setCoreLoading(true);
       try {
         const [summaryData, categoryData, accountData, budgetData] = await Promise.all([
-          getDashboardSummary(undefined, controller.signal),
+          getDashboardSummary(activeCurrency, undefined, controller.signal),
           listCategories(controller.signal),
           listAccounts(controller.signal),
-          listBudgets(currentMonthValue(), controller.signal),
+          listBudgets(currentMonthValue(), activeCurrency, controller.signal),
         ]);
         if (!active) return;
         setSummary(summaryData);
@@ -149,7 +161,7 @@ export default function Home() {
       active = false;
       controller.abort();
     };
-  }, [version]);
+  }, [version, activeCurrency]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -162,6 +174,7 @@ export default function Home() {
             {
               search: query.trim() || undefined,
               type: typeFilter === "all" ? undefined : typeFilter,
+              currency: activeCurrency,
               limit: 100,
             },
             controller.signal,
@@ -185,7 +198,7 @@ export default function Home() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, typeFilter, version]);
+  }, [query, typeFilter, version, activeCurrency]);
 
   useEffect(() => {
     if (!effectiveMonth) return;
@@ -195,7 +208,7 @@ export default function Home() {
     async function loadBudgets() {
       setBudgetsLoading(true);
       try {
-        const data = await listBudgets(effectiveMonth, controller.signal);
+        const data = await listBudgets(effectiveMonth, activeCurrency, controller.signal);
         if (!active) return;
         setBudgets(data);
         setError(null);
@@ -212,7 +225,7 @@ export default function Home() {
       active = false;
       controller.abort();
     };
-  }, [effectiveMonth, version]);
+  }, [effectiveMonth, version, activeCurrency]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -221,7 +234,7 @@ export default function Home() {
     async function loadCashflow() {
       setCashflowLoading(true);
       try {
-        const data = await getCashflow(range, controller.signal);
+        const data = await getCashflow(range, activeCurrency, controller.signal);
         if (!active) return;
         setCashflow(data);
         setError(null);
@@ -238,12 +251,27 @@ export default function Home() {
       active = false;
       controller.abort();
     };
-  }, [range, version]);
+  }, [range, version, activeCurrency]);
+
+  const visibleSummary = summary?.currency === activeCurrency ? summary : null;
+  const visibleCashflow = cashflow?.currency === activeCurrency ? cashflow : null;
+  const visibleBudgets = useMemo(
+    () => budgets.filter((budget) => budget.currency === activeCurrency),
+    [budgets, activeCurrency],
+  );
+  const visibleOverviewBudgets = useMemo(
+    () => overviewBudgets.filter((budget) => budget.currency === activeCurrency),
+    [overviewBudgets, activeCurrency],
+  );
+  const visibleTransactions = useMemo(
+    () => transactions.filter((transaction) => transaction.currency === activeCurrency),
+    [transactions, activeCurrency],
+  );
 
   const overviewTransactions = useMemo(() => {
-    if (query.trim()) return transactions.slice(0, 5);
-    return summary?.recent_transactions ?? [];
-  }, [query, summary, transactions]);
+    if (query.trim()) return visibleTransactions.slice(0, 5);
+    return visibleSummary?.recent_transactions ?? [];
+  }, [query, visibleSummary, visibleTransactions]);
 
   const syncing =
     coreLoading || transactionsLoading || budgetsLoading || cashflowLoading;
@@ -301,6 +329,7 @@ export default function Home() {
           category_id: payload.category_id,
           month: effectiveMonth,
           amount: payload.amount,
+          currency: activeCurrency,
         });
       }
       closeDialog();
@@ -323,6 +352,7 @@ export default function Home() {
       } else {
         await createAccount(payload);
       }
+      if (payload.currency) setCurrency(payload.currency);
       closeDialog();
       refresh();
       pushToast(dialog.account ? "Account updated." : "Account added.");
@@ -385,7 +415,11 @@ export default function Home() {
 
   return (
     <div className="app-shell">
-      <Sidebar activeView={activeView} onNavigate={navigate} transactionCount={transactionTotal} />
+      <Sidebar
+        activeView={activeView}
+        onNavigate={navigate}
+        transactionCount={transactionsLoading ? undefined : transactionTotal}
+      />
       <main className="main-area" id="overview">
         <Topbar
           activeView={activeView}
@@ -393,6 +427,9 @@ export default function Home() {
           onQueryChange={handleSearch}
           onNotifications={() => pushToast("You're all caught up. Have a lovely day!")}
           syncing={syncing}
+          currency={activeCurrency}
+          currencies={availableCurrencies}
+          onCurrencyChange={setCurrency}
         />
 
         <div className="dashboard-content">
@@ -414,9 +451,9 @@ export default function Home() {
           <div className="view-stage" key={activeView}>
             {activeView === "Overview" && (
               <OverviewView
-                summary={summary}
-                cashflow={cashflow}
-                budgets={overviewBudgets}
+                summary={visibleSummary}
+                cashflow={visibleCashflow}
+                budgets={visibleOverviewBudgets}
                 transactions={overviewTransactions}
                 query={query.trim()}
                 range={range}
@@ -431,17 +468,19 @@ export default function Home() {
                 connected={!error && Boolean(summary)}
                 dateLabel={today ? formatLongDate(today) : ""}
                 greeting={today ? greetingFor(today) : ""}
+                currency={activeCurrency}
               />
             )}
 
             {activeView === "Transactions" && (
               <TransactionsView
-                transactions={transactions}
-                total={transactionTotal}
+                transactions={visibleTransactions}
+                total={transactionsLoading ? visibleTransactions.length : transactionTotal}
                 query={query.trim()}
                 typeFilter={typeFilter}
                 loading={transactionsLoading}
                 deletingId={deletingId}
+                currency={activeCurrency}
                 onTypeFilterChange={setTypeFilter}
                 onAdd={openTransactionDialog}
                 onDelete={removeTransaction}
@@ -450,10 +489,11 @@ export default function Home() {
 
             {activeView === "Budgets" && (
               <BudgetsView
-                budgets={budgets}
+                budgets={visibleBudgets}
                 month={effectiveMonth}
                 loading={budgetsLoading}
                 deletingId={deletingId}
+                currency={activeCurrency}
                 onMonthChange={setSelectedMonth}
                 onAdd={() => openBudgetDialog()}
                 onEdit={openBudgetDialog}
@@ -486,6 +526,7 @@ export default function Home() {
         <TransactionDialog
           categories={categories}
           accounts={accounts}
+          currency={activeCurrency}
           saving={saving}
           error={dialogError}
           onSave={saveTransaction}
@@ -498,6 +539,7 @@ export default function Home() {
           month={effectiveMonth}
           categories={categories}
           budget={dialog.budget}
+          currency={activeCurrency}
           saving={saving}
           error={dialogError}
           onSave={saveBudget}

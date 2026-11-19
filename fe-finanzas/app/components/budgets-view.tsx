@@ -1,10 +1,11 @@
-import type { Budget } from "../lib/api";
+import type { Budget, Currency } from "../lib/api";
 import { categoryTone, formatMoney, formatMonth } from "../lib/format";
 import { Icon, resolveCategoryIcon } from "./icons";
 
 interface BudgetsViewProps {
   budgets: Budget[];
   month: string;
+  currency: Currency;
   loading: boolean;
   deletingId: number | null;
   onMonthChange: (month: string) => void;
@@ -16,6 +17,7 @@ interface BudgetsViewProps {
 export function BudgetsView({
   budgets,
   month,
+  currency,
   loading,
   deletingId,
   onMonthChange,
@@ -56,10 +58,12 @@ export function BudgetsView({
 
       <section className="panel budget-summary-card">
         <div className="budget-summary-copy">
-          <p className="section-kicker">{formatMonth(month).toUpperCase()}</p>
-          <div className="budget-summary-amount">{formatMoney(totalSpent)}</div>
+          <p className="section-kicker">
+            {formatMonth(month).toUpperCase()} · {currency}
+          </p>
+          <div className="budget-summary-amount">{formatMoney(totalSpent, currency)}</div>
           <p className="welcome-subtitle">
-            spent of {formatMoney(totalBudget)} across {budgets.length}{" "}
+            spent of {formatMoney(totalBudget, currency)} across {budgets.length}{" "}
             {budgets.length === 1 ? "category" : "categories"}
           </p>
         </div>
@@ -67,7 +71,7 @@ export function BudgetsView({
           <div>
             <span>Remaining</span>
             <strong className={remaining < 0 ? "negative" : ""}>
-              {formatMoney(remaining)}
+              {formatMoney(remaining, currency)}
             </strong>
           </div>
           <div>
@@ -117,8 +121,8 @@ export function BudgetsView({
                 </div>
               </div>
               <div className="budget-card-amounts">
-                <strong>{formatMoney(budget.spent)}</strong>
-                <span>of {formatMoney(budget.amount)}</span>
+                <strong>{formatMoney(budget.spent, budget.currency)}</strong>
+                <span>of {formatMoney(budget.amount, budget.currency)}</span>
               </div>
               <div className="budget-progress">
                 <span
@@ -129,10 +133,10 @@ export function BudgetsView({
               <div className="budget-card-foot">
                 <span>
                   {budget.remaining >= 0
-                    ? `${formatMoney(budget.remaining)} left`
-                    : `${formatMoney(Math.abs(budget.remaining))} over`}
+                    ? `${formatMoney(budget.remaining, budget.currency)} left`
+                    : `${formatMoney(Math.abs(budget.remaining), budget.currency)} over`}
                 </span>
-                <strong>{formatMoney(budget.amount)} limit</strong>
+                <strong>{formatMoney(budget.amount, budget.currency)} limit</strong>
               </div>
             </article>
           ))}
@@ -142,7 +146,9 @@ export function BudgetsView({
           <span className="empty-icon">
             <Icon name="budgets" size={26} />
           </span>
-          <h2>No budgets for {formatMonth(month)}</h2>
+          <h2>
+            No {currency} budgets for {formatMonth(month)}
+          </h2>
           <p>Create a limit for a category and start tracking your pace.</p>
           <button className="button button-dark" onClick={onAdd}>
             <Icon name="plus" size={17} /> Create a budget

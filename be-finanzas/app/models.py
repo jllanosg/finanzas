@@ -72,6 +72,9 @@ class Transaction(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     type: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, default="USD", server_default="USD", index=True
+    )
     date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow, index=True
     )
@@ -89,7 +92,11 @@ class Transaction(TimestampMixin, Base):
 
 class Budget(TimestampMixin, Base):
     __tablename__ = "budgets"
-    __table_args__ = (UniqueConstraint("category_id", "month", name="uq_budgets_category_month"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "category_id", "month", "currency", name="uq_budgets_category_month_currency"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     category_id: Mapped[int] = mapped_column(
@@ -97,5 +104,8 @@ class Budget(TimestampMixin, Base):
     )
     month: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, default="USD", server_default="USD"
+    )
 
     category: Mapped[Category] = relationship(back_populates="budgets")

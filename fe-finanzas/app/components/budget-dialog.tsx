@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { Budget, Category } from "../lib/api";
+import type { Budget, Category, Currency } from "../lib/api";
 import { formatMonth } from "../lib/format";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 
 interface BudgetDialogProps {
   month: string;
+  currency: Currency;
   categories: Category[];
   budget?: Budget;
   saving: boolean;
@@ -18,6 +19,7 @@ interface BudgetDialogProps {
 
 export function BudgetDialog({
   month,
+  currency,
   categories,
   budget,
   saving,
@@ -40,7 +42,7 @@ export function BudgetDialog({
   return (
     <Modal
       title={budget ? "Edit budget" : "Create a budget"}
-      kicker={formatMonth(month)}
+      kicker={`${formatMonth(month)} · ${currency}`}
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="dialog-form">
@@ -77,7 +79,8 @@ export function BudgetDialog({
           </div>
         </label>
         <p className="form-hint">
-          Spending in this category during {formatMonth(month)} counts against this limit.
+          Spending in this category during {formatMonth(month)} counts against this {currency}{" "}
+          limit.
         </p>
         {error && (
           <p className="form-error">

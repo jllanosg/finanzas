@@ -1,4 +1,4 @@
-from datetime import UTC
+from datetime import UTC, datetime
 
 
 def test_health(client):
@@ -107,8 +107,6 @@ def test_transaction_filters_and_search(client):
 
 
 def test_budget_returns_spent_total(client):
-    from datetime import datetime
-
     current_month = datetime.now(UTC).date().replace(day=1)
     category = client.post("/api/v1/categories", json={"name": "Housing"}).json()
     client.post(
@@ -141,3 +139,142 @@ def test_missing_transaction_returns_404(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Transaction not found"
+
+
+def test_currency_scoped_totals_and_budgets(client):
+    current_month = datetime.now(UTC).date().replace(day=1)
+    usd_account = client.post(
+        "/api/v1/accounts",
+        json={"name": "USD account", "balance": 1000, "currency": "USD"},
+    ).json()
+    clp_account = client.post(
+        "/api/v1/accounts",
+        json={"name": "CLP account", "balance": 500000, "currency": "CLP"},
+    ).json()
+    category = client.post("/api/v1/categories", json={"name": "Travel"}).json()
+
+    usd_transaction = client.post(
+        "/api/v1/transactions",
+        json={
+            "name": "USD trip",
+            "amount": 100,
+            "type": "expense",
+            "account_id": usd_account["id"],
+            "category_id": category["id"],
+        },
+    )
+    clp_transaction = client.post(
+        "/api/v1/transactions",
+        json={
+            "name": "CLP trip",
+            "amount": 50000,
+            "type": "expense",
+            "account_id": clp_account["id"],
+            "category_id": category["id"],
+        },
+    )
+    assert usd_transaction.json()["currency"] == "USD"
+    assert clp_transaction.json()["currency"] == "CLP"
+
+    usd_summary = client.get(
+        "/api/v1/dashboard/summary", params={"currency": "USD"}
+    ).json()
+    clp_summary = client.get(
+        "/api/v1/dashboard/summary", params={"currency": "CLP"}
+    ).json()
+    assert usd_summary["currency"] == "USD"
+    assert usd_summary["total_balance"] == 900.0
+    assert usd_summary["expenses"] == 100.0
+    assert [item["name"] for item in usd_summary["recent_transactions"]] == ["USD trip"]
+    assert clp_summary["currency"] == "CLP"
+    assert clp_summary["total_balance"] == 450000.0
+    assert clp_summary["expenses"] == 50000.0
+    assert [item["name"] for item in clp_summary["recent_transactions"]] == ["CLP trip"]
+
+    clp_cashflow = client.get(
+        "/api/v1/dashboard/cashflow", params={"period": "month", "currency": "CLP"}
+    ).json()
+    assert clp_cashflow["currency"] == "CLP"
+    assert clp_cashflow["total_expenses"] == 50000.0
+    assert clp_cashflow["total_income"] == 0.0
+
+    for currency, amount in (("USD", 200), ("CLP", 100000)):
+        response = client.post(
+            "/api/v1/budgets",
+            json={
+                "category_id": category["id"],
+                "month": current_month.isoformat(),
+                "amount": amount,
+                "currency": currency,
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["currency"] == currency
+
+    usd_budgets = client.get(
+        "/api/v1/budgets", params={"month": current_month.strftime("%Y-%m"), "currency": "USD"}
+    ).json()
+    clp_budgets = client.get(
+        "/api/v1/budgets", params={"month": current_month.strftime("%Y-%m"), "currency": "CLP"}
+    ).json()
+    assert len(usd_budgets) == 1
+    assert usd_budgets[0]["spent"] == 100.0
+    assert len(clp_budgets) == 1
+    assert clp_budgets[0]["spent"] == 50000.0
+
+
+def test_transaction_without_account_keeps_requested_currency(client):
+    response = client.post(
+        "/api/v1/transactions",
+        json={
+            "name": "Unlinked CLP expense",
+            "amount": 12000,
+            "type": "expense",
+            "currency": "CLP",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["currency"] == "CLP"
+    assert body["account_id"] is None
+    clp_summary = client.get(
+        "/api/v1/dashboard/summary", params={"currency": "CLP"}
+    ).json()
+    assert clp_summary["expenses"] == 12000.0
+    assert clp_summary["total_balance"] == 0.0
+
+
+def test_account_currency_change_relabels_its_transactions(client):
+    account = client.post(
+        "/api/v1/accounts",
+        json={"name": "Relabel account", "balance": 100, "currency": "USD"},
+    ).json()
+    transaction = client.post(
+        "/api/v1/transactions",
+        json={
+            "name": "Relabel expense",
+            "amount": 10,
+            "type": "expense",
+            "account_id": account["id"],
+        },
+    ).json()
+
+    updated = client.patch(
+        f"/api/v1/accounts/{account['id']}", json={"currency": "CLP"}
+    )
+    assert updated.status_code == 200
+    assert updated.json()["currency"] == "CLP"
+    assert client.get(f"/api/v1/transactions/{transaction['id']}").json()["currency"] == "CLP"
+
+    usd_summary = client.get(
+        "/api/v1/dashboard/summary", params={"currency": "USD"}
+    ).json()
+    clp_summary = client.get(
+        "/api/v1/dashboard/summary", params={"currency": "CLP"}
+    ).json()
+    assert usd_summary["total_balance"] == 0.0
+    assert clp_summary["total_balance"] == 90.0
+    assert clp_summary["expenses"] == 10.0
+    filtered = client.get("/api/v1/transactions", params={"currency": "CLP"}).json()
+    assert [item["id"] for item in filtered] == [transaction["id"]]

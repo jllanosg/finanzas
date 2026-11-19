@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { Currency } from "../lib/api";
 import { Icon } from "./icons";
 
 interface TopbarProps {
@@ -9,6 +10,9 @@ interface TopbarProps {
   onQueryChange: (value: string) => void;
   onNotifications: () => void;
   syncing: boolean;
+  currency: Currency;
+  currencies: Currency[];
+  onCurrencyChange: (currency: Currency) => void;
 }
 
 export function Topbar({
@@ -17,6 +21,9 @@ export function Topbar({
   onQueryChange,
   onNotifications,
   syncing,
+  currency,
+  currencies,
+  onCurrencyChange,
 }: TopbarProps) {
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -40,6 +47,20 @@ export function Topbar({
         {syncing && <span className="sync-state">Syncing…</span>}
       </div>
       <div className="topbar-actions">
+        <label className="currency-picker">
+          <span className="currency-picker-label">Currency</span>
+          <select
+            value={currency}
+            onChange={(event) => onCurrencyChange(event.target.value as Currency)}
+            aria-label="Display currency"
+          >
+            {currencies.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="search-box">
           <Icon name="search" size={17} />
           <input

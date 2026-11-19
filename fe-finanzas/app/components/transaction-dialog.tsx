@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { Account, Category, TransactionPayload, TransactionType } from "../lib/api";
+import type {
+  Account,
+  Category,
+  Currency,
+  TransactionPayload,
+  TransactionType,
+} from "../lib/api";
 import { todayInputValue } from "../lib/format";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
@@ -9,6 +15,7 @@ import { Modal } from "./modal";
 interface TransactionDialogProps {
   categories: Category[];
   accounts: Account[];
+  currency: Currency;
   saving: boolean;
   error: string | null;
   onSave: (payload: TransactionPayload) => void;
@@ -18,6 +25,7 @@ interface TransactionDialogProps {
 export function TransactionDialog({
   categories,
   accounts,
+  currency,
   saving,
   error,
   onSave,
@@ -28,6 +36,12 @@ export function TransactionDialog({
   const [categoryId, setCategoryId] = useState(
     () => String(categories.find((category) => category.kind === "expense")?.id ?? ""),
   );
+  const [accountId, setAccountId] = useState(() => {
+    const matching = accounts.find((account) => account.currency === currency);
+    return String(matching?.id ?? "");
+  });
+  const selectedAccount = accounts.find((account) => String(account.id) === accountId);
+  const transactionCurrency = selectedAccount?.currency ?? currency;
 
   function changeType(nextType: TransactionType) {
     setType(nextType);
@@ -50,6 +64,7 @@ export function TransactionDialog({
       name,
       amount,
       type,
+      currency: transactionCurrency,
       category_id: category ? Number(category) : null,
       account_id: account ? Number(account) : null,
       date: date ? new Date(`${date}T12:00:00`).toISOString() : undefined,
@@ -98,27 +113,40 @@ export function TransactionDialog({
           </label>
           <label className="form-label">
             Account
-            <select name="account_id" defaultValue={String(accounts[0]?.id ?? "")}>
+            <select
+              name="account_id"
+              value={accountId}
+              onChange={(event) => setAccountId(event.target.value)}
+            >
               <option value="">No account</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.name}
+                  {account.name} · {account.currency}
                 </option>
               ))}
             </select>
           </label>
         </div>
-        <label className="form-label">
-          Date
-          <input name="date" type="date" defaultValue={todayInputValue()} />
-        </label>
+        <div className="form-row">
+          <label className="form-label">
+            Date
+            <input name="date" type="date" defaultValue={todayInputValue()} />
+          </label>
+          <label className="form-label">
+            Currency
+            <div className="static-field">
+              {transactionCurrency}
+              <span>{selectedAccount ? "from account" : "dashboard currency"}</span>
+            </div>
+          </label>
+        </div>
         <label className="form-label">
           Notes <span className="optional-label">Optional</span>
           <textarea name="notes" rows={2} placeholder="Anything worth remembering?" />
         </label>
         <p className="form-hint">
           {accounts.length
-            ? "The selected account balance, and the dashboard total, update automatically when you save."
+            ? "The selected account balance and the dashboard total update automatically. Transactions inherit the account currency."
             : "Add an account first if you want this transaction to change your total balance."}
         </p>
         {error && (

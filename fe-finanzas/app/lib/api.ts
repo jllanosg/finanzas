@@ -7,13 +7,16 @@ export type TransactionType = "income" | "expense";
 export type CategoryKind = TransactionType;
 export type AccountType = "checking" | "savings" | "credit" | "cash" | "investment";
 export type CashflowPeriod = "week" | "month" | "year";
+export type Currency = "USD" | "CLP";
+
+export const SUPPORTED_CURRENCIES: Currency[] = ["USD", "CLP"];
 
 export interface Account {
   id: number;
   name: string;
   type: AccountType;
   balance: number;
-  currency: string;
+  currency: Currency;
   institution: string | null;
   is_active: boolean;
   created_at: string;
@@ -33,6 +36,7 @@ export interface Transaction {
   name: string;
   amount: number;
   type: TransactionType;
+  currency: Currency;
   date: string;
   notes: string | null;
   category_id: number | null;
@@ -46,6 +50,7 @@ export interface Budget {
   category_id: number;
   month: string;
   amount: number;
+  currency: Currency;
   category: Category | null;
   spent: number;
   remaining: number;
@@ -69,6 +74,7 @@ export interface BudgetOverview {
 
 export interface DashboardSummary {
   month: string;
+  currency: Currency;
   total_balance: number;
   income: number;
   expenses: number;
@@ -87,6 +93,7 @@ export interface CashflowPoint {
 
 export interface Cashflow {
   period: CashflowPeriod;
+  currency: Currency;
   start: string;
   end: string;
   total_income: number;
@@ -98,6 +105,7 @@ export interface TransactionPayload {
   name: string;
   amount: number;
   type: TransactionType;
+  currency?: Currency;
   date?: string;
   notes?: string | null;
   category_id?: number | null;
@@ -108,7 +116,7 @@ export interface AccountPayload {
   name: string;
   type: AccountType;
   balance: number;
-  currency?: string;
+  currency?: Currency;
   institution?: string | null;
   is_active?: boolean;
 }
@@ -117,6 +125,7 @@ export interface BudgetPayload {
   category_id: number;
   month: string;
   amount: number;
+  currency?: Currency;
 }
 
 export class ApiError extends Error {
@@ -213,6 +222,7 @@ export function listCategories(signal?: AbortSignal): Promise<Category[]> {
 export interface TransactionQuery {
   search?: string;
   type?: TransactionType;
+  currency?: Currency;
   categoryId?: number;
   accountId?: number;
   startDate?: string;
@@ -228,6 +238,7 @@ export async function listTransactions(
   const path = `/transactions${queryString({
     search: params.search,
     type: params.type,
+    currency: params.currency,
     category_id: params.categoryId,
     account_id: params.accountId,
     start_date: params.startDate,
@@ -252,8 +263,12 @@ export function deleteTransaction(id: number): Promise<void> {
   return request<void>(`/transactions/${id}`, { method: "DELETE" });
 }
 
-export function listBudgets(month: string, signal?: AbortSignal): Promise<Budget[]> {
-  return request<Budget[]>(`/budgets${queryString({ month })}`, { signal });
+export function listBudgets(
+  month: string,
+  currency: Currency = "USD",
+  signal?: AbortSignal,
+): Promise<Budget[]> {
+  return request<Budget[]>(`/budgets${queryString({ month, currency })}`, { signal });
 }
 
 export function createBudget(payload: BudgetPayload): Promise<Budget> {
@@ -274,10 +289,20 @@ export function deleteBudget(id: number): Promise<void> {
   return request<void>(`/budgets/${id}`, { method: "DELETE" });
 }
 
-export function getDashboardSummary(month?: string, signal?: AbortSignal): Promise<DashboardSummary> {
-  return request<DashboardSummary>(`/dashboard/summary${queryString({ month })}`, { signal });
+export function getDashboardSummary(
+  currency: Currency = "USD",
+  month?: string,
+  signal?: AbortSignal,
+): Promise<DashboardSummary> {
+  return request<DashboardSummary>(`/dashboard/summary${queryString({ month, currency })}`, {
+    signal,
+  });
 }
 
-export function getCashflow(period: CashflowPeriod, signal?: AbortSignal): Promise<Cashflow> {
-  return request<Cashflow>(`/dashboard/cashflow${queryString({ period })}`, { signal });
+export function getCashflow(
+  period: CashflowPeriod,
+  currency: Currency = "USD",
+  signal?: AbortSignal,
+): Promise<Cashflow> {
+  return request<Cashflow>(`/dashboard/cashflow${queryString({ period, currency })}`, { signal });
 }

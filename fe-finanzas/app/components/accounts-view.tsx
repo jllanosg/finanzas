@@ -1,4 +1,5 @@
 import type { Account, AccountType } from "../lib/api";
+import { SUPPORTED_CURRENCIES } from "../lib/api";
 import { formatMoney } from "../lib/format";
 import { Icon } from "./icons";
 
@@ -28,6 +29,12 @@ export function AccountsView({
   onDelete,
 }: AccountsViewProps) {
   const totalBalance = accounts.reduce((total, account) => total + account.balance, 0);
+  const totalsByCurrency = SUPPORTED_CURRENCIES.map((currency) => ({
+    currency,
+    total: accounts
+      .filter((account) => account.currency === currency)
+      .reduce((total, account) => total + account.balance, 0),
+  })).filter((entry) => accounts.some((account) => account.currency === entry.currency));
 
   return (
     <>
@@ -50,9 +57,22 @@ export function AccountsView({
         <span className="accounts-summary-icon">
           <Icon name="wallet" size={24} />
         </span>
-        <div>
+        <div className="accounts-summary-copy">
           <p className="section-kicker">TOTAL ACROSS ACTIVE ACCOUNTS</p>
-          <div className="accounts-summary-amount">{formatMoney(totalBalance)}</div>
+          <div className="accounts-summary-totals">
+            {totalsByCurrency.length ? (
+              totalsByCurrency.map((entry) => (
+                <div key={entry.currency}>
+                  <span>{entry.currency}</span>
+                  <strong>{formatMoney(entry.total, entry.currency)}</strong>
+                </div>
+              ))
+            ) : (
+              <div>
+                <strong>{formatMoney(totalBalance, "USD")}</strong>
+              </div>
+            )}
+          </div>
         </div>
         <div className="accounts-summary-count">
           <strong>{accounts.length}</strong>
@@ -95,9 +115,11 @@ export function AccountsView({
               <h2>{account.name}</h2>
               <p className="account-institution">{account.institution || "No institution"}</p>
               <div className="account-card-footer">
-                <span className="account-type-tag">{accountTypeLabels[account.type]}</span>
+                <span className="account-type-tag">
+                  {accountTypeLabels[account.type]} · {account.currency}
+                </span>
                 <strong className={account.balance < 0 ? "negative" : ""}>
-                  {formatMoney(account.balance)}
+                  {formatMoney(account.balance, account.currency)}
                 </strong>
               </div>
             </article>

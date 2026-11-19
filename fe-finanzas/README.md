@@ -26,15 +26,16 @@ If the frontend runs on a different port, update `CORS_ORIGINS` in `../be-finanz
 
 ## What is wired to the backend
 
-- Overview totals from `/dashboard/summary`
-- Cash-flow chart and range switch from `/dashboard/cashflow`
-- Recent transactions and full search from `/transactions`
-- Transaction creation and deletion
+- Overview totals from `/dashboard/summary?currency=...`
+- Cash-flow chart and range switch from `/dashboard/cashflow?currency=...`
+- Recent transactions and full search from `/transactions?currency=...`
+- Transaction creation and deletion; amounts inherit the account currency
 - Transaction amounts update the assigned account balance, so the dashboard total changes immediately
-- Monthly budgets with spent/remaining totals
-- Budget creation, editing, and deletion
-- Account listing, creation, editing, and deletion
+- Monthly budgets with spent/remaining totals, scoped by currency
+- Budget creation, editing, and deletion, per currency
+- Account listing, creation, editing, and deletion with USD or CLP
 - Categories loaded from the API for transaction and budget forms
+- A USD/CLP display-currency selector; currencies are never converted
 
 The UI shows a connection banner with a retry action when the API is unreachable.
 

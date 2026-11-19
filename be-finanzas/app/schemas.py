@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 AccountType = Literal["checking", "savings", "credit", "cash", "investment"]
 TransactionType = Literal["income", "expense"]
 CategoryKind = Literal["income", "expense"]
+Currency = Literal["USD", "CLP"]
 
 
 class ORMModel(BaseModel):
@@ -19,7 +20,7 @@ class AccountCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     type: AccountType = "checking"
     balance: float = 0
-    currency: str = Field(default="USD", min_length=3, max_length=3)
+    currency: Currency = "USD"
     institution: str | None = Field(default=None, max_length=120)
     is_active: bool = True
 
@@ -28,7 +29,7 @@ class AccountUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     type: AccountType | None = None
     balance: float | None = None
-    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    currency: Currency | None = None
     institution: str | None = Field(default=None, max_length=120)
     is_active: bool | None = None
 
@@ -38,7 +39,7 @@ class AccountOut(ORMModel):
     name: str
     type: AccountType
     balance: float
-    currency: str
+    currency: Currency
     institution: str | None
     is_active: bool
     created_at: datetime
@@ -77,6 +78,7 @@ class TransactionCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     amount: float = Field(gt=0)
     type: TransactionType
+    currency: Currency = "USD"
     date: datetime | None = None
     notes: str | None = None
     category_id: int | None = None
@@ -87,6 +89,7 @@ class TransactionUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     amount: float | None = Field(default=None, gt=0)
     type: TransactionType | None = None
+    currency: Currency | None = None
     date: datetime | None = None
     notes: str | None = None
     category_id: int | None = None
@@ -98,6 +101,7 @@ class TransactionOut(ORMModel):
     name: str
     amount: float
     type: TransactionType
+    currency: Currency
     date: datetime
     notes: str | None
     category_id: int | None
@@ -113,6 +117,7 @@ class BudgetCreate(BaseModel):
     category_id: int
     month: date
     amount: float = Field(gt=0)
+    currency: Currency = "USD"
 
     @field_validator("month")
     @classmethod
@@ -123,6 +128,7 @@ class BudgetCreate(BaseModel):
 class BudgetUpdate(BaseModel):
     amount: float | None = Field(default=None, gt=0)
     month: date | None = None
+    currency: Currency | None = None
 
     @field_validator("month")
     @classmethod
@@ -135,6 +141,7 @@ class BudgetOut(ORMModel):
     category_id: int
     month: date
     amount: float
+    currency: Currency
     category: CategoryOut | None = None
     spent: float = 0
     remaining: float = 0
@@ -161,6 +168,7 @@ class BudgetOverview(BaseModel):
 
 class DashboardSummary(BaseModel):
     month: str
+    currency: Currency
     total_balance: float
     income: float
     expenses: float
@@ -179,6 +187,7 @@ class CashflowPoint(BaseModel):
 
 class CashflowOut(BaseModel):
     period: Literal["week", "month", "year"]
+    currency: Currency
     start: date
     end: date
     total_income: float

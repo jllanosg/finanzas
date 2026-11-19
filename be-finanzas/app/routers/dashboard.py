@@ -11,6 +11,7 @@ from app.schemas import (
     BudgetOverview,
     CashflowOut,
     CashflowPoint,
+    Currency,
     DashboardSummary,
     SpendingCategory,
     TransactionOut,
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 @router.get("/summary", response_model=DashboardSummary)
 def get_summary(
     month: str | None = None,
+    currency: Currency = Query(default="USD"),
     db: Session = Depends(get_db),
 ) -> DashboardSummary:
     try:
@@ -34,7 +36,10 @@ def get_summary(
 
     total_balance = float(
         db.scalar(
-            select(func.coalesce(func.sum(Account.balance), 0)).where(Account.is_active.is_(True))
+            select(func.coalesce(func.sum(Account.balance), 0)).where(
+                Account.is_active.is_(True),
+                Account.currency == currency,
+            )
         )
         or 0
     )
@@ -43,6 +48,7 @@ def get_summary(
         value = db.scalar(
             select(func.coalesce(func.sum(Transaction.amount), 0)).where(
                 Transaction.type == transaction_type,
+                Transaction.currency == currency,
                 Transaction.date >= start,
                 Transaction.date < end,
             )
@@ -54,6 +60,7 @@ def get_summary(
 
     recent = db.scalars(
         select(Transaction)
+        .where(Transaction.currency == currency)
         .options(selectinload(Transaction.category))
         .order_by(Transaction.date.desc(), Transaction.id.desc())
         .limit(5)
@@ -70,6 +77,7 @@ def get_summary(
         .outerjoin(Category, Transaction.category_id == Category.id)
         .where(
             Transaction.type == "expense",
+            Transaction.currency == currency,
             Transaction.date >= start,
             Transaction.date < end,
         )
@@ -90,13 +98,17 @@ def get_summary(
 
     total_budget = float(
         db.scalar(
-            select(func.coalesce(func.sum(Budget.amount), 0)).where(Budget.month == month_date)
+            select(func.coalesce(func.sum(Budget.amount), 0)).where(
+                Budget.month == month_date,
+                Budget.currency == currency,
+            )
         )
         or 0
     )
 
     return DashboardSummary(
         month=month_date.strftime("%Y-%m"),
+        currency=currency,
         total_balance=round(total_balance, 2),
         income=round(income, 2),
         expenses=round(expenses, 2),
@@ -115,6 +127,7 @@ def get_summary(
 @router.get("/cashflow", response_model=CashflowOut)
 def get_cashflow(
     period: Literal["week", "month", "year"] = Query(default="month"),
+    currency: Currency = Query(default="USD"),
     db: Session = Depends(get_db),
 ) -> CashflowOut:
     today = datetime.now(UTC).date()
@@ -132,6 +145,7 @@ def get_cashflow(
 
     rows = db.execute(
         select(Transaction.date, Transaction.type, Transaction.amount).where(
+            Transaction.currency == currency,
             Transaction.date >= start_at,
             Transaction.date < end_at,
         )
@@ -172,6 +186,7 @@ def get_cashflow(
 
     return CashflowOut(
         period=period,
+        currency=currency,
         start=start,
         end=today,
         total_income=round(total_income, 2),

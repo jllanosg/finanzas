@@ -38,6 +38,8 @@ bun dev
 
 Open http://localhost:3000. The dashboard loads real data from the API: accounts, transactions, budgets, monthly summary, and cash-flow ranges. You can add and delete transactions, manage budgets, and add/edit/delete accounts.
 
+Accounts can use **USD** or **CLP**. The display-currency selector scopes dashboard totals, transactions, cash flow, and budgets to one currency at a time; amounts are never converted between currencies.
+
 `NEXT_PUBLIC_API_URL` defaults to `http://localhost:8000/api/v1`. If you run the frontend on another port, add that origin to `CORS_ORIGINS` in `be-finanzas/.env`.
 
 See [`fe-finanzas/README.md`](./fe-finanzas/README.md) for frontend details and [`be-finanzas/README.md`](./be-finanzas/README.md) for endpoints, migrations, tests, and configuration.

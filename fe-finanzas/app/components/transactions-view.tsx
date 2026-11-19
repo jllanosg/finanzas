@@ -1,4 +1,4 @@
-import type { Transaction, TransactionType } from "../lib/api";
+import type { Currency, Transaction, TransactionType } from "../lib/api";
 import { categoryTone, formatMoney, formatTransactionDate } from "../lib/format";
 import { Icon, resolveCategoryIcon } from "./icons";
 
@@ -11,6 +11,7 @@ interface TransactionsViewProps {
   typeFilter: TypeFilter;
   loading: boolean;
   deletingId: number | null;
+  currency: Currency;
   onTypeFilterChange: (filter: TypeFilter) => void;
   onAdd: () => void;
   onDelete: (transaction: Transaction) => void;
@@ -29,6 +30,7 @@ export function TransactionsView({
   typeFilter,
   loading,
   deletingId,
+  currency,
   onTypeFilterChange,
   onAdd,
   onDelete,
@@ -43,8 +45,8 @@ export function TransactionsView({
           <h1>Transactions</h1>
           <p className="welcome-subtitle">
             {query
-              ? `${total} result${total === 1 ? "" : "s"} for “${query}”`
-              : `${total} transaction${total === 1 ? "" : "s"} in your workspace`}
+              ? `${total} ${currency} result${total === 1 ? "" : "s"} for “${query}”`
+              : `${total} ${currency} transaction${total === 1 ? "" : "s"} in your workspace`}
           </p>
         </div>
         <button className="button button-dark" onClick={onAdd}>
@@ -94,7 +96,7 @@ export function TransactionsView({
                 <span className="date-cell">{formatTransactionDate(transaction.date)}</span>
                 <span className={`amount-cell ${transaction.type}`}>
                   {transaction.type === "income" ? "+" : "−"}
-                  {formatMoney(transaction.amount)}
+                  {formatMoney(transaction.amount, transaction.currency)}
                 </span>
                 <span className="row-actions">
                   <button

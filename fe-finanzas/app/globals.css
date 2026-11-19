@@ -212,6 +212,11 @@ h1 { margin: 8px 0 5px; color: #26312b; font-size: clamp(25px, 2.25vw, 31px); fo
 .nav-item { text-decoration: none; }
 .utility-nav .nav-item > svg:last-child { margin-left: auto; opacity: .65; }
 .profile-card { cursor: default; }.sync-state { padding: 2px 7px; border-radius: 4px; color: #5b7c67; background: #edf4ec; font-size: 9px; font-weight: 600; }
+.currency-picker { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 8px 0 10px; border: 1px solid #e8ebe7; border-radius: 7px; color: #8b968e; background: #fff; }
+.currency-picker-label { font-size: 8px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.currency-picker select { height: 28px; padding: 0 2px; border: 0; outline: 0; color: #425347; background: transparent; font-size: 10px; font-weight: 650; cursor: pointer; }
+.currency-badge { display: inline-flex; align-items: center; padding: 2px 5px; margin-left: 4px; border-radius: 4px; color: #62766a; background: #edf3ec; font-size: 8px; font-weight: 700; letter-spacing: .06em; vertical-align: 1px; }
+.balance-card .currency-badge { color: #d9e9cb; background: #ffffff14; }
 .view-stage { animation: view-in .2s ease-out; }
 @keyframes view-in { from { opacity: .35; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 .view-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 24px; }
@@ -291,6 +296,11 @@ h1 { margin: 8px 0 5px; color: #26312b; font-size: clamp(25px, 2.25vw, 31px); fo
 
 .accounts-summary-card { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 20px 22px; }
 .accounts-summary-icon { display: grid; place-items: center; width: 45px; height: 45px; flex: 0 0 auto; border-radius: 12px; color: #557b64; background: #eaf3ea; }
+.accounts-summary-copy { min-width: 0; }
+.accounts-summary-totals { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 4px; }
+.accounts-summary-totals > div { display: grid; gap: 1px; }
+.accounts-summary-totals span { color: #8d988f; font-size: 8px; font-weight: 650; letter-spacing: .05em; }
+.accounts-summary-totals strong { color: #2c3930; font-size: 21px; font-weight: 560; letter-spacing: -.7px; }
 .accounts-summary-amount { margin-top: 4px; color: #2c3930; font-size: 26px; font-weight: 560; letter-spacing: -.9px; }
 .accounts-summary-count { display: grid; gap: 2px; margin-left: auto; padding-left: 20px; border-left: 1px solid #edf0ec; text-align: right; }
 .accounts-summary-count strong { color: #455349; font-size: 20px; font-weight: 560; }
@@ -307,6 +317,8 @@ h1 { margin: 8px 0 5px; color: #26312b; font-size: clamp(25px, 2.25vw, 31px); fo
 
 .dialog-form { display: grid; gap: 15px; }
 .form-label textarea { width: 100%; min-height: 57px; padding: 9px 11px; border: 1px solid #e7ebe6; border-radius: 6px; outline: 0; color: #3b473f; background: #fff; font-size: 11px; font-weight: 400; resize: vertical; }
+.static-field { display: flex; align-items: center; justify-content: space-between; gap: 7px; width: 100%; height: 40px; padding: 0 11px; border: 1px solid #e7ebe6; border-radius: 6px; color: #53665a; background: #f8f9f7; font-size: 11px; font-weight: 650; }
+.static-field span { color: #9ba49c; font-size: 8px; font-weight: 400; }
 .form-label textarea::placeholder { color: #b1b8b2; }
 .optional-label { color: #abb2ac; font-size: 8px; font-weight: 400; }
 .form-hint { margin: -2px 0 0; color: #99a29b; font-size: 9px; line-height: 1.5; }
@@ -412,6 +424,7 @@ h1 { margin: 8px 0 5px; color: #26312b; font-size: clamp(25px, 2.25vw, 31px); fo
   .dashboard-footer { padding-bottom: 2px; font-size: 8px; }
 }
 @media (max-width: 410px) {
+  .notification-button { display: none; }
   .welcome-row { display: block; }
   .welcome-row .button { margin-top: 13px; }
   .table-header, .transaction-row { grid-template-columns: minmax(119px, 1.4fr) minmax(65px, .8fr) minmax(68px, .85fr) minmax(69px, .75fr); column-gap: 4px; }
@@ -437,6 +450,12 @@ h1 { margin: 8px 0 5px; color: #26312b; font-size: clamp(25px, 2.25vw, 31px); fo
   .utility-nav .nav-item > svg:last-child { display: none; }
 }
 @media (max-width: 720px) {
+  .currency-picker { height: 32px; padding: 0 6px 0 8px; }
+  .currency-picker-label { display: none; }
+  .currency-picker select { width: 45px; font-size: 9px; }
+  .topbar-actions { gap: 7px; }
+  .accounts-summary-totals { gap: 14px; }
+  .accounts-summary-totals strong { font-size: 18px; }
   .view-heading { flex-direction: column; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
   .view-heading .button { min-height: 36px; }
   .view-heading-actions { flex-wrap: wrap; width: 100%; }
