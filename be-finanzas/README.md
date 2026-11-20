@@ -78,7 +78,8 @@ All routes are under `/api/v1`.
 | `GET/POST` | `/categories` | List (`?kind=expense`) or create categories |
 | `GET/PATCH/DELETE` | `/categories/{id}` | Read, update, or delete a category |
 | `GET/POST` | `/transactions` | Filter with `search`, `type`, `currency`, `category_id`, `account_id`, `start_date`, `end_date`, `limit`, `offset` |
-| `GET/PATCH/DELETE` | `/transactions/{id}` | Read, update, or delete a transaction |
+| `POST` | `/transactions/bulk-delete` | Delete up to 200 transactions by ID and reverse their account-balance effects atomically |
+| `GET/PATCH/DELETE` | `/transactions/{id}` | Read, edit, or delete a transaction |
 | `GET/POST` | `/budgets` | List for `?month=YYYY-MM&currency=USD` with spent totals, or create a budget |
 | `GET/PATCH/DELETE` | `/budgets/{id}` | Read, update, or delete a budget |
 | `GET` | `/dashboard/summary` | Balance, monthly income/expenses, recent transactions, spending by category, and budget totals for `?currency=USD\|CLP` |

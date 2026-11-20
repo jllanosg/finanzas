@@ -128,6 +128,11 @@ export interface BudgetPayload {
   currency?: Currency;
 }
 
+export interface BulkDeleteResult {
+  deleted: number;
+  missing: number[];
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -256,6 +261,23 @@ export function createTransaction(payload: TransactionPayload): Promise<Transact
   return request<Transaction>("/transactions", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function updateTransaction(
+  id: number,
+  payload: Partial<TransactionPayload>,
+): Promise<Transaction> {
+  return request<Transaction>(`/transactions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function bulkDeleteTransactions(ids: number[]): Promise<BulkDeleteResult> {
+  return request<BulkDeleteResult>("/transactions/bulk-delete", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
   });
 }
 

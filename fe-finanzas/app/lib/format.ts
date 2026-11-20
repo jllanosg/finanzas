@@ -115,6 +115,13 @@ export function todayInputValue(): string {
   ).padStart(2, "0")}`;
 }
 
+export function dateInputValue(value: string): string {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+}
+
 export function formatMonth(month: string): string {
   const [year, monthNumber] = month.split("-").map(Number);
   if (!year || !monthNumber) return month;

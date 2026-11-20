@@ -110,6 +110,15 @@ class TransactionOut(ORMModel):
     created_at: datetime
 
 
+class TransactionBulkDelete(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=200)
+
+
+class TransactionBulkDeleteResult(BaseModel):
+    deleted: int
+    missing: list[int] = Field(default_factory=list)
+
+
 # Budgets
 
 

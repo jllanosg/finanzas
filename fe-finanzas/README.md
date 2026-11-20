@@ -29,7 +29,8 @@ If the frontend runs on a different port, update `CORS_ORIGINS` in `../be-finanz
 - Overview totals from `/dashboard/summary?currency=...`
 - Cash-flow chart and range switch from `/dashboard/cashflow?currency=...`
 - Recent transactions and full search from `/transactions?currency=...`
-- Transaction creation and deletion; amounts inherit the account currency
+- Transaction creation, editing, and deletion; amounts inherit the account currency
+- Multi-select bulk deletion that reverses every affected account balance
 - Transaction amounts update the assigned account balance, so the dashboard total changes immediately
 - Monthly budgets with spent/remaining totals, scoped by currency
 - Budget creation, editing, and deletion, per currency

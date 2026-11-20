@@ -9,6 +9,8 @@ from app.database import get_db
 from app.models import Account, Category, Transaction
 from app.schemas import (
     Currency,
+    TransactionBulkDelete,
+    TransactionBulkDeleteResult,
     TransactionCreate,
     TransactionOut,
     TransactionType,
@@ -94,6 +96,34 @@ def list_transactions(
     )
     response.headers["X-Total-Count"] = str(total)
     return list(db.scalars(stmt).all())
+
+
+@router.post("/bulk-delete", response_model=TransactionBulkDeleteResult)
+def bulk_delete_transactions(
+    payload: TransactionBulkDelete,
+    db: Session = Depends(get_db),
+) -> TransactionBulkDeleteResult:
+    ids = list(dict.fromkeys(payload.ids))
+    transactions = list(
+        db.scalars(
+            select(Transaction).where(Transaction.id.in_(ids)).with_for_update()
+        ).all()
+    )
+    found_ids = {transaction.id for transaction in transactions}
+
+    for transaction in transactions:
+        _apply_balance_delta(
+            db,
+            transaction.account_id,
+            -_signed_amount(transaction.type, transaction.amount),
+        )
+        db.delete(transaction)
+
+    db.commit()
+    return TransactionBulkDeleteResult(
+        deleted=len(transactions),
+        missing=sorted(set(ids) - found_ids),
+    )
 
 
 @router.get("/{transaction_id}", response_model=TransactionOut)

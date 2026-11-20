@@ -31,6 +31,7 @@ import {
   createAccount,
   createBudget,
   createTransaction,
+  bulkDeleteTransactions,
   deleteAccount,
   deleteBudget,
   deleteTransaction,
@@ -42,6 +43,7 @@ import {
   listTransactions,
   updateAccount,
   updateBudget,
+  updateTransaction,
 } from "./lib/api";
 import { currentMonthValue, formatLongDate, greetingFor } from "./lib/format";
 import { useHydrated } from "./lib/use-hydrated";
@@ -49,7 +51,7 @@ import { useHydrated } from "./lib/use-hydrated";
 type TypeFilter = "all" | TransactionType;
 
 type DialogState =
-  | { kind: "transaction" }
+  | { kind: "transaction"; transaction?: Transaction }
   | { kind: "budget"; budget?: Budget }
   | { kind: "account"; account?: Account }
   | null;
@@ -111,6 +113,7 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [version, setVersion] = useState(0);
 
@@ -292,6 +295,11 @@ export default function Home() {
     setDialogError(null);
   }
 
+  function openEditTransactionDialog(transaction: Transaction) {
+    setDialog({ kind: "transaction", transaction });
+    setDialogError(null);
+  }
+
   function openBudgetDialog(budget?: Budget) {
     setDialog({ kind: "budget", budget });
     setDialogError(null);
@@ -303,13 +311,22 @@ export default function Home() {
   }
 
   async function saveTransaction(payload: TransactionPayload) {
+    if (dialog?.kind !== "transaction") return;
     setSaving(true);
     setDialogError(null);
     try {
-      await createTransaction(payload);
+      if (dialog.transaction) {
+        await updateTransaction(dialog.transaction.id, payload);
+      } else {
+        await createTransaction(payload);
+      }
       closeDialog();
       refresh();
-      pushToast("Transaction added. Dashboard totals are up to date.");
+      pushToast(
+        dialog.transaction
+          ? "Transaction updated. Account balances and totals were recalculated."
+          : "Transaction added. Dashboard totals are up to date.",
+      );
     } catch (saveError) {
       setDialogError(errorMessage(saveError));
     } finally {
@@ -374,6 +391,31 @@ export default function Home() {
       pushToast(errorMessage(deleteError), "error");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function removeTransactions(ids: number[]): Promise<boolean> {
+    if (!ids.length) return false;
+    if (
+      !window.confirm(
+        `Delete ${ids.length} selected transaction${ids.length === 1 ? "" : "s"}? This cannot be undone.`,
+      )
+    ) {
+      return false;
+    }
+    setBulkDeleting(true);
+    try {
+      const result = await bulkDeleteTransactions(ids);
+      refresh();
+      pushToast(
+        `${result.deleted} transaction${result.deleted === 1 ? "" : "s"} deleted. Account balances were updated.`,
+      );
+      return result.deleted > 0;
+    } catch (deleteError) {
+      pushToast(errorMessage(deleteError), "error");
+      return false;
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -480,10 +522,13 @@ export default function Home() {
                 typeFilter={typeFilter}
                 loading={transactionsLoading}
                 deletingId={deletingId}
+                bulkDeleting={bulkDeleting}
                 currency={activeCurrency}
                 onTypeFilterChange={setTypeFilter}
                 onAdd={openTransactionDialog}
+                onEdit={openEditTransactionDialog}
                 onDelete={removeTransaction}
+                onBulkDelete={removeTransactions}
               />
             )}
 
@@ -524,9 +569,11 @@ export default function Home() {
 
       {dialog?.kind === "transaction" && (
         <TransactionDialog
+          key={dialog.transaction?.id ?? "new"}
           categories={categories}
           accounts={accounts}
           currency={activeCurrency}
+          transaction={dialog.transaction}
           saving={saving}
           error={dialogError}
           onSave={saveTransaction}

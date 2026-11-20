@@ -5,10 +5,11 @@ import type {
   Account,
   Category,
   Currency,
+  Transaction,
   TransactionPayload,
   TransactionType,
 } from "../lib/api";
-import { todayInputValue } from "../lib/format";
+import { dateInputValue, todayInputValue } from "../lib/format";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 
@@ -16,6 +17,7 @@ interface TransactionDialogProps {
   categories: Category[];
   accounts: Account[];
   currency: Currency;
+  transaction?: Transaction;
   saving: boolean;
   error: string | null;
   onSave: (payload: TransactionPayload) => void;
@@ -26,22 +28,30 @@ export function TransactionDialog({
   categories,
   accounts,
   currency,
+  transaction,
   saving,
   error,
   onSave,
   onClose,
 }: TransactionDialogProps) {
-  const [type, setType] = useState<TransactionType>("expense");
+  const [type, setType] = useState<TransactionType>(transaction?.type ?? "expense");
   const categoriesForType = categories.filter((category) => category.kind === type);
-  const [categoryId, setCategoryId] = useState(
-    () => String(categories.find((category) => category.kind === "expense")?.id ?? ""),
+  const [categoryId, setCategoryId] = useState(() =>
+    transaction?.category_id
+      ? String(transaction.category_id)
+      : String(categories.find((category) => category.kind === type)?.id ?? ""),
   );
   const [accountId, setAccountId] = useState(() => {
+    if (transaction?.account_id) {
+      const existing = accounts.find((account) => account.id === transaction.account_id);
+      if (existing) return String(existing.id);
+    }
     const matching = accounts.find((account) => account.currency === currency);
     return String(matching?.id ?? "");
   });
   const selectedAccount = accounts.find((account) => String(account.id) === accountId);
-  const transactionCurrency = selectedAccount?.currency ?? currency;
+  const transactionCurrency =
+    selectedAccount?.currency ?? transaction?.currency ?? currency;
 
   function changeType(nextType: TransactionType) {
     setType(nextType);
@@ -73,18 +83,36 @@ export function TransactionDialog({
   }
 
   return (
-    <Modal title="Add a transaction" kicker="KEEP IT UP TO DATE" onClose={onClose}>
+    <Modal
+      title={transaction ? "Edit transaction" : "Add a transaction"}
+      kicker={transaction ? "UPDATE THE DETAILS" : "KEEP IT UP TO DATE"}
+      onClose={onClose}
+    >
       <form onSubmit={handleSubmit} className="dialog-form">
         <label className="form-label">
           Name
-          <input name="name" placeholder="e.g. Weekend groceries" required autoFocus />
+          <input
+            name="name"
+            placeholder="e.g. Weekend groceries"
+            defaultValue={transaction?.name ?? ""}
+            required
+            autoFocus
+          />
         </label>
         <div className="form-row">
           <label className="form-label">
             Amount
             <div className="amount-input">
               <span>$</span>
-              <input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required />
+              <input
+                name="amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="0.00"
+                defaultValue={transaction?.amount ?? ""}
+                required
+              />
             </div>
           </label>
           <label className="form-label">
@@ -130,7 +158,13 @@ export function TransactionDialog({
         <div className="form-row">
           <label className="form-label">
             Date
-            <input name="date" type="date" defaultValue={todayInputValue()} />
+            <input
+              name="date"
+              type="date"
+              defaultValue={
+                transaction ? dateInputValue(transaction.date) : todayInputValue()
+              }
+            />
           </label>
           <label className="form-label">
             Currency
@@ -142,7 +176,12 @@ export function TransactionDialog({
         </div>
         <label className="form-label">
           Notes <span className="optional-label">Optional</span>
-          <textarea name="notes" rows={2} placeholder="Anything worth remembering?" />
+          <textarea
+            name="notes"
+            rows={2}
+            placeholder="Anything worth remembering?"
+            defaultValue={transaction?.notes ?? ""}
+          />
         </label>
         <p className="form-hint">
           {accounts.length
@@ -160,8 +199,8 @@ export function TransactionDialog({
             Cancel
           </button>
           <button type="submit" className="button button-dark" disabled={saving}>
-            <Icon name="plus" size={17} />
-            {saving ? "Saving…" : "Add transaction"}
+            <Icon name={transaction ? "check" : "plus"} size={17} />
+            {saving ? "Saving…" : transaction ? "Save changes" : "Add transaction"}
           </button>
         </div>
       </form>

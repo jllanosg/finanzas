@@ -36,7 +36,7 @@ bun install
 bun dev
 ```
 
-Open http://localhost:3000. The dashboard loads real data from the API: accounts, transactions, budgets, monthly summary, and cash-flow ranges. You can add and delete transactions, manage budgets, and add/edit/delete accounts.
+Open http://localhost:3000. The dashboard loads real data from the API: accounts, transactions, budgets, monthly summary, and cash-flow ranges. You can add, edit, and delete transactions, delete several transactions at once, manage budgets, and add/edit/delete accounts.
 
 Accounts can use **USD** or **CLP**. The display-currency selector scopes dashboard totals, transactions, cash flow, and budgets to one currency at a time; amounts are never converted between currencies.
 

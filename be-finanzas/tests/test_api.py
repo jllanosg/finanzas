@@ -278,3 +278,44 @@ def test_account_currency_change_relabels_its_transactions(client):
     assert clp_summary["expenses"] == 10.0
     filtered = client.get("/api/v1/transactions", params={"currency": "CLP"}).json()
     assert [item["id"] for item in filtered] == [transaction["id"]]
+
+
+def test_bulk_delete_transactions_reverses_account_balances(client):
+    account = client.post(
+        "/api/v1/accounts",
+        json={"name": "Bulk account", "balance": 1000, "currency": "USD"},
+    ).json()
+    expense = client.post(
+        "/api/v1/transactions",
+        json={
+            "name": "Bulk expense",
+            "amount": 100,
+            "type": "expense",
+            "account_id": account["id"],
+        },
+    ).json()
+    income = client.post(
+        "/api/v1/transactions",
+        json={
+            "name": "Bulk income",
+            "amount": 50,
+            "type": "income",
+            "account_id": account["id"],
+        },
+    ).json()
+    unlinked = client.post(
+        "/api/v1/transactions",
+        json={"name": "Bulk unlinked", "amount": 20, "type": "expense"},
+    ).json()
+
+    assert client.get(f"/api/v1/accounts/{account['id']}").json()["balance"] == 950.0
+
+    response = client.post(
+        "/api/v1/transactions/bulk-delete",
+        json={"ids": [expense["id"], income["id"], unlinked["id"], 99999]},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"deleted": 3, "missing": [99999]}
+    assert client.get(f"/api/v1/accounts/{account['id']}").json()["balance"] == 1000.0
+    assert client.get("/api/v1/transactions").json() == []
+    assert client.get("/api/v1/dashboard/summary").json()["expenses"] == 0.0
